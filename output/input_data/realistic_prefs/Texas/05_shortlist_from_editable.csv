@@ -1,0 +1,16 @@
+chapter,inventor,contributor,inventor_rank,contributor_rank,mutual_rank_sum,reason
+Texas,Ana,Elena,,3,,con_pref
+Texas,Ana,Freya,,3,,con_pref
+Texas,Ana,Karthik,2,3,5,mutual
+Texas,Ana,Lucia,1,3,4,mutual
+Texas,Ana,Mireille,3,3,6,mutual
+Texas,Caroline,Elena,,2,,con_pref
+Texas,Caroline,Freya,,2,,con_pref
+Texas,Caroline,Karthik,1,1,2,mutual
+Texas,Caroline,Lucia,2,2,4,mutual
+Texas,Caroline,Mireille,3,1,4,mutual
+Texas,Desika,Elena,,1,,con_pref
+Texas,Desika,Freya,,1,,con_pref
+Texas,Desika,Karthik,3,2,5,mutual
+Texas,Desika,Lucia,2,1,3,mutual
+Texas,Desika,Mireille,1,2,3,mutual

@@ -1,0 +1,12 @@
+chapter,inventor,contributor,inventor_rank,contributor_rank,mutual_rank_sum,reason
+Denmark,Aiswarya,Elena,1,,,inv_pref
+Denmark,Aiswarya,Freja,4,1,5,mutual
+Denmark,Aiswarya,Jakob,,2,,con_pref
+Denmark,Aiswarya,Lorenzo,3,,,inv_pref
+Denmark,Aiswarya,Nora,2,1,3,mutual
+Denmark,Oliver,Elena,2,1,3,mutual
+Denmark,Oliver,Freja,,2,,con_pref
+Denmark,Oliver,Ida,1,1,2,mutual
+Denmark,Oliver,Jakob,,1,,con_pref
+Denmark,Oliver,Lorenzo,,1,,con_pref
+Denmark,Oliver,Nora,3,,,inv_pref

@@ -1,0 +1,33 @@
+name: nucleate-matching
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - numpy
+  - pandas
+  - polars
+  - scipy
+  - matplotlib
+  - seaborn
+  - plotly
+  - networkx
+  - pulp
+  - tqdm
+  - tabulate
+  - python-slugify
+  - jupyterlab
+  - ipywidgets
+  - typer
+  - rich
+  - pydantic
+  - pytest
+  - black
+  - ruff
+  - pre-commit
+  - mypy
+  - python-dotenv
+  - streamlit
+  - pip:
+      - gradio
+      - mkdocs-material

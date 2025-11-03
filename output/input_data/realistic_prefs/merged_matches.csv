@@ -1,0 +1,64 @@
+chapter,inventor,contributor,inventor_rank,contributor_rank,mutual_rank_sum,reason,reason_order,score,round
+Boston,Aiswarya,Hugo,1.0,2.0,3.0,Mutual,1,3.01,1
+Boston,Ana,Julia,2.0,2.0,4.0,Mutual,1,4.01,1
+Boston,Caroline,Grace,1.0,1.0,2.0,Mutual,1,2.01,1
+Boston,Fariha,Noah,2.0,1.0,3.0,Mutual,1,3.01,1
+Boston,Nicolas,Dante,,1.0,,Contributor Preference,3,999.03,1
+Boston,Philipp,Lucia,1.0,1.0,2.0,Mutual,1,2.01,1
+Boston,Caroline,Dante,3.0,,,Inventor Preference,2,999.02,2
+Boston,Denyse,Lucia,2.0,3.0,5.0,Mutual,1,5.01,2
+Boston,Fariha,Grace,3.0,2.0,5.0,Mutual,1,5.01,2
+Boston,Nicolas,Noah,2.0,2.0,4.0,Mutual,1,4.01,2
+Boston,Oliver,Hugo,3.0,1.0,4.0,Mutual,1,4.01,2
+Boston,Philipp,Julia,3.0,3.0,6.0,Mutual,1,6.01,2
+Boston,Aiswarya,Dante,,4.0,,Contributor Preference,3,999.03,3
+Boston,Ana,Noah,3.0,,,Inventor Preference,2,999.02,3
+Boston,Caroline,Hugo,2.0,3.0,5.0,Mutual,1,5.01,3
+Boston,Fariha,Lucia,5.0,2.0,7.0,Mutual,1,7.01,3
+Boston,Nicolas,Julia,3.0,,,Inventor Preference,2,999.02,3
+Boston,Oliver,Grace,2.0,4.0,6.0,Mutual,1,6.01,3
+Boston,Aiswarya,Grace,3.0,,,Inventor Preference,2,999.02,4
+Boston,Caroline,Lucia,4.0,,,Inventor Preference,2,999.02,4
+Boston,Denyse,Noah,1.0,,,Inventor Preference,2,999.02,4
+Boston,Fariha,Dante,4.0,,,Inventor Preference,2,999.02,4
+Boston,Oliver,Julia,,4.0,,Contributor Preference,3,999.03,4
+Boston,Aiswarya,Lucia,2.0,,,Inventor Preference,2,999.02,5
+Boston,Ana,Grace,1.0,,,Inventor Preference,2,999.02,5
+Boston,Fariha,Julia,1.0,,,Inventor Preference,2,999.02,5
+Boston,Oliver,Dante,,2.0,,Contributor Preference,3,999.03,5
+Boston,Philipp,Noah,2.0,,,Inventor Preference,2,999.02,5
+Boston,Aiswarya,Julia,,1.0,,Contributor Preference,3,999.03,6
+Boston,Ana,Dante,,3.0,,Contributor Preference,3,999.03,6
+Boston,Caroline,Noah,,3.0,,Contributor Preference,3,999.03,6
+Boston,Denyse,Grace,3.0,,,Inventor Preference,2,999.02,6
+Boston,Nicolas,Lucia,4.0,,,Inventor Preference,2,999.02,6
+Boston,Nicolas,Grace,1.0,,,Inventor Preference,2,999.02,7
+Boston,Oliver,Lucia,1.0,,,Inventor Preference,2,999.02,7
+Boston,Oliver,Noah,,4.0,,Contributor Preference,3,999.03,8
+Boston,Philipp,Grace,,3.0,,Contributor Preference,3,999.03,8
+Denmark,Aiswarya,Nora,2.0,1.0,3.0,Mutual,1,3.01,1
+Denmark,Oliver,Ida,1.0,1.0,2.0,Mutual,1,2.01,1
+Denmark,Aiswarya,Freja,4.0,1.0,5.0,Mutual,1,5.01,2
+Denmark,Oliver,Elena,2.0,1.0,3.0,Mutual,1,3.01,2
+Denmark,Aiswarya,Elena,1.0,,,Inventor Preference,2,999.02,3
+Denmark,Oliver,Nora,3.0,,,Inventor Preference,2,999.02,3
+Denmark,Aiswarya,Lorenzo,3.0,,,Inventor Preference,2,999.02,4
+Denmark,Oliver,Freja,,2.0,,Contributor Preference,3,999.03,4
+Denmark,Aiswarya,Jakob,,2.0,,Contributor Preference,3,999.03,5
+Denmark,Oliver,Lorenzo,,1.0,,Contributor Preference,3,999.03,5
+Denmark,Oliver,Jakob,,1.0,,Contributor Preference,3,999.03,6
+Texas,Ana,Mireille,3.0,3.0,6.0,Mutual,1,6.01,1
+Texas,Caroline,Karthik,1.0,1.0,2.0,Mutual,1,2.01,1
+Texas,Desika,Lucia,2.0,1.0,3.0,Mutual,1,3.01,1
+Texas,Ana,Lucia,1.0,3.0,4.0,Mutual,1,4.01,2
+Texas,Caroline,Elena,,2.0,,Contributor Preference,3,999.03,2
+Texas,Desika,Mireille,1.0,2.0,3.0,Mutual,1,3.01,2
+Texas,Ana,Karthik,2.0,3.0,5.0,Mutual,1,5.01,3
+Texas,Caroline,Lucia,2.0,2.0,4.0,Mutual,1,4.01,3
+Texas,Desika,Elena,,1.0,,Contributor Preference,3,999.03,3
+Texas,Ana,Elena,,3.0,,Contributor Preference,3,999.03,4
+Texas,Caroline,Mireille,3.0,1.0,4.0,Mutual,1,4.01,4
+Texas,Desika,Karthik,3.0,2.0,5.0,Mutual,1,5.01,4
+Texas,Ana,Freya,,3.0,,Contributor Preference,3,999.03,5
+Texas,Caroline,Freya,,2.0,,Contributor Preference,3,999.03,6
+Texas,Desika,Freya,,1.0,,Contributor Preference,3,999.03,7

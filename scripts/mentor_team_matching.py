@@ -1,5 +1,6 @@
 # run one-to-one matching 
 
+import argparse
 from pathlib import Path
 
 import pandas as pd
@@ -109,17 +110,28 @@ def get_matches(
 
 def main():
 
+    parser = argparse.ArgumentParser(
+        description="Per-chapter team-mentor matching pipeline"
+    )
+    parser.add_argument(
+        "--output-path", required=True, default='output'
+        )
+    parser.add_argument(
+        "--unranked_cost",
+        help="default cost assignment for unranked edge, will default to max rank",
+        default=None
+        )
     
-    output_dir = "output"
+    args = parser.parse_args()
+    
+    output_path = Path(args.output_path)
+    output_csv = output_path / "all_chapter_matches.csv"
 
-    output_all = Path(output_dir) / "all_chapter_matches.csv"
+    df = pd.read_csv(output_path / "mentor_team_match_requests_clean.csv")
+    max_rank = args.unranked_cost or df["rank"].max()
 
-    df = pd.read_csv(Path(output_dir) / "mentor_team_match_requests_clean.csv")
-
-    max_rank = df["rank"].max()
-
+    # run matching
     all_chapter_matches = []
-
     for chapter, df_chapter in df.groupby("chapter"):
 
         print(f"Matching {chapter}")
@@ -134,7 +146,7 @@ def main():
 
     all_chapter_matches = pd.concat(all_chapter_matches)
 
-    all_chapter_matches.to_csv(output_all)
+    all_chapter_matches.to_csv(output_csv)
 
 
 if __name__ == '__main__':

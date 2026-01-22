@@ -9,18 +9,30 @@ from scipy.optimize import linear_sum_assignment
 
 # %%
 
-def team_mentor_pivots(df_chapter: pd.DataFrame):
+def team_mentor_pivots(
+    df_chapter: pd.DataFrame
+    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    create intermediate pivot tables of team and mentor rankings for single chapter
 
-    # pivot tables 
-    # team vs mentor, mentor vs team, with rankings as values
+    Args:
+        df_chapter (pd.DataFrame): long format df of cleaned rankings for single chapter
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: pivot tables of 
+            team_to_mentor: team-mentor preferences
+            mentor_to_mentor: mentor-team preferences
+            pair_types: flag for directionality of preferences
+    """
+
+    # pivot tables: team vs mentor, mentor vs team, with rankings as values
     team_df = df_chapter[df_chapter["type"] == "Team"]
     mentor_df = df_chapter[df_chapter["type"] == "Mentor"]
     
     team_to_mentor = team_df.pivot(index="requester", columns="requestee", values="rank")
     mentor_to_team = mentor_df.pivot(index="requester", columns="requestee", values="rank")
 
-    # ensure all teams and mentors present in each table
-    
+    # ensure all teams and mentors present in both tables
     all_teams = pd.concat([team_df["requester"], mentor_df["requestee"]]).unique()
     all_mentors = pd.concat([team_df["requestee"], mentor_df["requester"]]).unique()
 
@@ -40,13 +52,33 @@ def team_mentor_pivots(df_chapter: pd.DataFrame):
     return team_to_mentor, mentor_to_team, pair_type
 
 
-def get_matches(chapter_name, team_to_mentor, mentor_to_team, na_fill_value):
+def get_matches(
+    chapter_name: str, 
+    team_to_mentor: pd.DataFrame,
+    mentor_to_team: pd.DataFrame,
+    na_fill_value: float
+    ) -> pd.DataFrame:  
+    """
+    Run matching algorithm using linear sum assignment
+    Minimizes total sum of pairs, where pair cost is defined as ranking sum
+    (e.g. mutual rank of 1 between team and mentor will yield low score of 2)
+    
+    Args:
+        chapter_name (str): chapter name
+        team_to_mentor (pd.DataFrame): pivot table of team rankings of mentors
+        mentor_to_team (pd.DataFrame): pivot table of mentor rankings of teams
+        na_fill_value (float): back-fill value for unranked 
+
+    Returns:
+        pd.DataFrame: dataframe of match pairs with given scores and reason
+    """
 
     # fill missing rows/columns with fill value (max ranking?)
     t2m_filled = team_to_mentor.fillna(na_fill_value).astype(int)
     m2t_filled = mentor_to_team.fillna(na_fill_value).astype(int)
 
     # "cost" matrix is the summed rankings, then minimize bipartite matching
+    # TODO allow input option for custom bonus/re-weighting
     cost = t2m_filled + m2t_filled.T
     row_ind, col_ind = linear_sum_assignment(cost.values)
 

@@ -93,7 +93,7 @@ def visualize_prefs(
 ):
 
     # cmap, cbar_ticks, norm = _discrete_cmap_and_norm(max_rank_seen)
-    cmap, cbar_ticks, norm = discrete_cmap_from_continuous("RdBu", max_rank_seen)
+    cmap, cbar_ticks, norm = discrete_cmap_from_continuous("PuBuGn", max_rank_seen)
 
     fig, ax = plt.subplots(1, 2, figsize=(12, 4))
     ax_flat = ax.flatten()
@@ -110,7 +110,9 @@ def visualize_prefs(
             cbar_kws={'ticks': cbar_ticks, 'shrink': 0.75, 'label': 'Ranking'},
             ax=ax_flat[i_tbl],
             xticklabels=list(pivot_tbl.columns),
-            yticklabels=(pivot_tbl.index)
+            yticklabels=(pivot_tbl.index),
+            linecolor='black',
+            linewidth=0.5
         )
 
         ax_flat[i_tbl].set_xticklabels(
@@ -133,8 +135,8 @@ def visualize_prefs(
                         j = pivot_tbl.columns.get_loc(mentor)
                         ax_flat[i_tbl].scatter(
                             j + 0.8, i + 0.8,
-                            color="red", s=60, marker="o",
-                            edgecolors="white", linewidths=1.0
+                            color="red", s=80, marker="*",
+                            edgecolors="black", linewidths=1.0
                         )
                 else:
                     # mentor_to_team: rows=mentor, cols=team
@@ -143,8 +145,8 @@ def visualize_prefs(
                         j = pivot_tbl.columns.get_loc(team)
                         ax_flat[i_tbl].scatter(
                             j + 0.8, i + 0.8,
-                            color="red", s=60, marker="o",
-                            edgecolors="white", linewidths=1.0
+                            color="red", s=80, marker="*",
+                            edgecolors="black", linewidths=1.0
                         )
 
     if save_path:

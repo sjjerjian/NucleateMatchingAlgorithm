@@ -1,14 +1,29 @@
 # run one-to-one matching 
 
 import argparse
+from typing import Optional
 from pathlib import Path
 
 import pandas as pd
-import seaborn as sns
-
 from scipy.optimize import linear_sum_assignment
 
+
+from plot_utils import (
+    visualize_prefs, visualize_matches, plot_chapter_graph
+)
+
+# TODO
+# - popularity graphs
+# - segmented colormap heatmaps
+# - adjacency graph?
+
 # %%
+
+def _strip_first_name(name_str):
+
+    name_split = name_str.split()
+    name_split[0] = name_split[0][0]
+    return " ".join(name_split)
 
 def team_mentor_pivots(
     df_chapter: pd.DataFrame
@@ -29,7 +44,10 @@ def team_mentor_pivots(
     # pivot tables: team vs mentor, mentor vs team, with rankings as values
     team_df = df_chapter[df_chapter["type"] == "Team"]
     mentor_df = df_chapter[df_chapter["type"] == "Mentor"]
-    
+
+    team_df['requestee'] = team_df['requestee'].apply(_strip_first_name)
+    mentor_df['requester'] = mentor_df['requester'].apply(_strip_first_name)
+
     team_to_mentor = team_df.pivot(index="requester", columns="requestee", values="rank")
     mentor_to_team = mentor_df.pivot(index="requester", columns="requestee", values="rank")
 
@@ -40,16 +58,12 @@ def team_mentor_pivots(
     team_to_mentor = team_to_mentor.reindex(index=all_teams, columns=all_mentors)
     mentor_to_team = mentor_to_team.reindex(index=all_mentors, columns=all_teams)
 
-    sns.heatmap(team_to_mentor, annot=team_to_mentor, fmt='.0f', cmap='YlGnBu')
-
     # get directionality
     # 0 - unmatched, 1 - team pref, 2 - mentor pref, 3 - mutual
     pair_type = (
         team_to_mentor.notna().astype(int)
         + mentor_to_team.T.notna().astype(int) * 2
     )
-    sns.heatmap(pair_type, annot=pair_type)
-
     return team_to_mentor, mentor_to_team, pair_type
 
 
@@ -57,8 +71,8 @@ def get_matches(
     chapter_name: str, 
     team_to_mentor: pd.DataFrame,
     mentor_to_team: pd.DataFrame,
-    na_fill_value: float
-    ) -> pd.DataFrame:  
+    na_fill_value: float,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:  
     """
     Run matching algorithm using linear sum assignment
     Minimizes total sum of pairs, where pair cost is defined as ranking sum
@@ -72,6 +86,7 @@ def get_matches(
 
     Returns:
         pd.DataFrame: dataframe of match pairs with given scores and reason
+        pd.DataFrame: overall cost matrix used to match pairs
     """
 
     # fill missing rows/columns with fill value (max ranking?)
@@ -79,16 +94,16 @@ def get_matches(
     m2t_filled = mentor_to_team.fillna(na_fill_value).astype(int)
 
     # "cost" matrix is the summed rankings, then minimize bipartite matching
-    # TODO allow input option for custom bonus/re-weighting
-    cost = t2m_filled + m2t_filled.T
-    row_ind, col_ind = linear_sum_assignment(cost.values)
+    cost_raw = t2m_filled + m2t_filled.T
+    cost_adj = cost_raw.copy()
+    row_ind, col_ind = linear_sum_assignment(cost_adj.values)
 
     # construct output table
     matches = pd.DataFrame({
         "chapter": chapter_name,
-        "team": cost.index[row_ind],
-        "mentor": cost.columns[col_ind],
-        "mutual_rank_sum": cost.values[row_ind, col_ind],
+        "team": cost_adj.index[row_ind],
+        "mentor": cost_adj.columns[col_ind],
+        "mutual_rank_sum": cost_adj.values[row_ind, col_ind],
         "team_rank": team_to_mentor.to_numpy()[row_ind, col_ind],
         "mentor_rank": mentor_to_team.to_numpy()[col_ind, row_ind]
     })
@@ -104,7 +119,9 @@ def get_matches(
         0: "unranked"
     })
 
-    return matches
+    return matches, cost_raw
+
+
 
 # %%
 
@@ -114,7 +131,14 @@ def main():
         description="Per-chapter team-mentor matching pipeline"
     )
     parser.add_argument(
-        "--output-path", required=True, default='output'
+        "--input-csv", 
+        help='',
+        default="mentor_team_match_requests_clean.csv"
+        )
+    parser.add_argument(
+        "--output-dir", 
+        help='',
+        default='output'
         )
     parser.add_argument(
         "--unranked_cost",
@@ -124,29 +148,44 @@ def main():
     
     args = parser.parse_args()
     
-    output_path = Path(args.output_path)
-    output_csv = output_path / "all_chapter_matches.csv"
+    output_dir = Path(args.output_dir)
+    output_csv = output_dir / "all_chapter_matches.csv"
+    
 
-    df = pd.read_csv(output_path / "mentor_team_match_requests_clean.csv")
+    df = pd.read_csv(output_dir / args.input_csv)
     max_rank = args.unranked_cost or df["rank"].max()
 
     # run matching
     all_chapter_matches = []
     for chapter, df_chapter in df.groupby("chapter"):
 
+        chapter_output_dir = output_dir / chapter
+        Path(chapter_output_dir).mkdir(parents=True, exist_ok=True)
+
         print(f"Matching {chapter}")
 
         team_to_mentor, mentor_to_team, pair_type = team_mentor_pivots(df_chapter)
-        matches = get_matches(
-            chapter, team_to_mentor, mentor_to_team, na_fill_value=max_rank
+
+        # option to save these out here and manually edit?
+        
+        matches, cost_matrix = get_matches(
+            chapter, team_to_mentor, mentor_to_team, na_fill_value=max_rank*2
             )
+        visualize_prefs(
+            team_to_mentor,
+            mentor_to_team,
+            pair_type,
+            max_rank, 
+            matches=matches,
+            save_path=chapter_output_dir/f"{chapter}_team_mentor_preferences.png")
         print(matches)
 
+        visualize_matches(cost_matrix, matches)
         all_chapter_matches.append(matches)
 
     all_chapter_matches = pd.concat(all_chapter_matches)
 
-    all_chapter_matches.to_csv(output_csv)
+    all_chapter_matches.to_csv(output_csv, index=False)
 
 
 if __name__ == '__main__':

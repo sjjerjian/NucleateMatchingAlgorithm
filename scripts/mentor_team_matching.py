@@ -1,21 +1,14 @@
 # run one-to-one matching 
-
 import argparse
-from typing import Optional
 from pathlib import Path
 
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 
-
 from plot_utils import (
-    visualize_prefs, visualize_matches, plot_chapter_graph
+    visualize_prefs, visualize_matches
 )
 
-# TODO
-# - popularity graphs
-# - segmented colormap heatmaps
-# - adjacency graph?
 
 # %%
 
@@ -125,7 +118,7 @@ def get_matches(
         0: "unranked"
     })
 
-    return matches, cost_raw, cost_adj
+    return matches, cost_raw
 
 
 
@@ -162,7 +155,6 @@ def main():
     output_dir = Path(args.output_dir)
     output_csv = output_dir / "all_chapter_matches.csv"
     
-
     df = pd.read_csv(output_dir / args.input_csv)
 
     # run matching
@@ -172,28 +164,35 @@ def main():
         chapter_output_dir = output_dir / chapter
         Path(chapter_output_dir).mkdir(parents=True, exist_ok=True)
 
+        print("="*60)
         print(f"Matching {chapter}")
 
         team_to_mentor, mentor_to_team, pair_type = team_mentor_pivots(df_chapter)
 
         # option to save these out here and manually edit?
         
-        matches, cost_raw, cost_adj = get_matches(
-            chapter, team_to_mentor, mentor_to_team, top_rank_bonus=args.top_rank_bonus, unranked_penalty=args.unranked_penalty
+        matches, cost_raw = get_matches(
+            chapter,
+            team_to_mentor,
+            mentor_to_team, 
+            top_rank_bonus=args.top_rank_bonus,
+            unranked_penalty=args.unranked_penalty
             )
+        
         visualize_prefs(
             team_to_mentor,
             mentor_to_team,
             pair_type,
             matches=matches,
             save_path=chapter_output_dir/f"{chapter}_team_mentor_preferences.png")
+        
         print(matches)
+        print("="*60)
 
-        visualize_matches(cost_raw, matches)
+        # visualize_matches(cost_raw, matches)
         all_chapter_matches.append(matches)
 
     all_chapter_matches = pd.concat(all_chapter_matches)
-
     all_chapter_matches.to_csv(output_csv, index=False)
 
 

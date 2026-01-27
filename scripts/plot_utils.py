@@ -87,11 +87,14 @@ def visualize_prefs(
     team_to_mentor,
     mentor_to_team,
     pair_type,
-    max_rank_seen,
     matches=None,
     save_path=None
 ):
 
+    t2m_max = team_to_mentor.max().max()
+    m2t_max = mentor_to_team.max().max()
+    max_rank_seen = int(max(t2m_max, m2t_max))
+    
     # cmap, cbar_ticks, norm = _discrete_cmap_and_norm(max_rank_seen)
     cmap, cbar_ticks, norm = discrete_cmap_from_continuous("PuBuGn", max_rank_seen)
 

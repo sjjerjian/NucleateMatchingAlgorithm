@@ -71,7 +71,8 @@ def get_matches(
     chapter_name: str, 
     team_to_mentor: pd.DataFrame,
     mentor_to_team: pd.DataFrame,
-    na_fill_value: float,
+    top_rank_bonus: float = 0,
+    unranked_penalty: float = 1,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:  
     """
     Run matching algorithm using linear sum assignment
@@ -82,28 +83,33 @@ def get_matches(
         chapter_name (str): chapter name
         team_to_mentor (pd.DataFrame): pivot table of team rankings of mentors
         mentor_to_team (pd.DataFrame): pivot table of mentor rankings of teams
-        na_fill_value (float): back-fill value for unranked 
+        top_rank_bonus: bonus to give for mutual top 1 rankings
+        unranked_penalty: penalty to add to unranked edge
 
     Returns:
         pd.DataFrame: dataframe of match pairs with given scores and reason
         pd.DataFrame: overall cost matrix used to match pairs
     """
 
+    t2m_na_fill = team_to_mentor.max().max() + unranked_penalty
+    m2t_na_fill = mentor_to_team.max().max() + unranked_penalty
+        
     # fill missing rows/columns with fill value (max ranking?)
-    t2m_filled = team_to_mentor.fillna(na_fill_value).astype(int)
-    m2t_filled = mentor_to_team.fillna(na_fill_value).astype(int)
+    t2m_filled = team_to_mentor.fillna(t2m_na_fill).astype(int)
+    m2t_filled = mentor_to_team.fillna(m2t_na_fill).astype(int)
 
     # "cost" matrix is the summed rankings, then minimize bipartite matching
     cost_raw = t2m_filled + m2t_filled.T
-    cost_adj = cost_raw.copy()
-    row_ind, col_ind = linear_sum_assignment(cost_adj.values)
+    cost_adj = cost_raw.values
+    cost_adj[cost_adj==2] -= top_rank_bonus
+    row_ind, col_ind = linear_sum_assignment(cost_adj)
 
     # construct output table
     matches = pd.DataFrame({
         "chapter": chapter_name,
-        "team": cost_adj.index[row_ind],
-        "mentor": cost_adj.columns[col_ind],
-        "mutual_rank_sum": cost_adj.values[row_ind, col_ind],
+        "team": cost_raw.index[row_ind],
+        "mentor": cost_raw.columns[col_ind],
+        "mutual_rank_sum": cost_raw.values[row_ind, col_ind],
         "team_rank": team_to_mentor.to_numpy()[row_ind, col_ind],
         "mentor_rank": mentor_to_team.to_numpy()[col_ind, row_ind]
     })
@@ -119,7 +125,7 @@ def get_matches(
         0: "unranked"
     })
 
-    return matches, cost_raw
+    return matches, cost_raw, cost_adj
 
 
 
@@ -141,9 +147,14 @@ def main():
         default='output'
         )
     parser.add_argument(
-        "--unranked_cost",
-        help="default cost assignment for unranked edge, will default to max rank",
-        default=None
+        "--top_rank_bonus",
+        help="extra bonus for mutual top 1 matches",
+        default=0
+    )
+    parser.add_argument(
+        "--unranked_penalty",
+        help="extra penalty for unranked edge, on top of default (max_rank+1)",
+        default=1
         )
     
     args = parser.parse_args()
@@ -153,7 +164,6 @@ def main():
     
 
     df = pd.read_csv(output_dir / args.input_csv)
-    max_rank = args.unranked_cost or df["rank"].max()
 
     # run matching
     all_chapter_matches = []
@@ -168,19 +178,18 @@ def main():
 
         # option to save these out here and manually edit?
         
-        matches, cost_matrix = get_matches(
-            chapter, team_to_mentor, mentor_to_team, na_fill_value=max_rank*2
+        matches, cost_raw, cost_adj = get_matches(
+            chapter, team_to_mentor, mentor_to_team, top_rank_bonus=args.top_rank_bonus, unranked_penalty=args.unranked_penalty
             )
         visualize_prefs(
             team_to_mentor,
             mentor_to_team,
             pair_type,
-            max_rank, 
             matches=matches,
             save_path=chapter_output_dir/f"{chapter}_team_mentor_preferences.png")
         print(matches)
 
-        visualize_matches(cost_matrix, matches)
+        visualize_matches(cost_raw, matches)
         all_chapter_matches.append(matches)
 
     all_chapter_matches = pd.concat(all_chapter_matches)

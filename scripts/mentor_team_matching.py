@@ -93,6 +93,7 @@ def get_matches(
 
     # "cost" matrix is the summed rankings, then minimize bipartite matching
     cost_raw = t2m_filled + m2t_filled.T
+
     cost_adj = cost_raw.values
     cost_adj[cost_adj==2] -= top_rank_bonus
     row_ind, col_ind = linear_sum_assignment(cost_adj)
@@ -120,6 +121,17 @@ def get_matches(
 
     return matches, cost_raw
 
+
+def top_n_per_team(df, N):
+    # Return top N mutual preferences per team, without assignment
+    return (
+        df
+        .reset_index(names="requester")
+        .melt(id_vars="requester", var_name="requestee", value_name="value")
+        .sort_values(["requester", "value"])
+        .assign(match=lambda x: x.groupby("requester").cumcount() + 1)
+        .query(f"match <= {N}")
+    )
 
 
 # %%
@@ -153,12 +165,13 @@ def main():
     args = parser.parse_args()
     
     output_dir = Path(args.output_dir)
-    output_csv = output_dir / "all_chapter_matches.csv"
     
     df = pd.read_csv(output_dir / args.input_csv)
 
     # run matching
     all_chapter_matches = []
+    all_mentor_ranks = []
+    
     for chapter, df_chapter in df.groupby("chapter"):
 
         chapter_output_dir = output_dir / chapter
@@ -178,6 +191,13 @@ def main():
             top_rank_bonus=args.top_rank_bonus,
             unranked_penalty=args.unranked_penalty
             )
+
+        top4 = top_n_per_team(cost_raw, 4)
+        all_mentor_ranks.append(top4)
+
+        matches.to_csv(chapter_output_dir/f"{chapter}_matches.csv", index=False)
+        top4.to_csv(chapter_output_dir/f"{chapter}_mentor_ranks.csv", index=False)
+
         
         visualize_prefs(
             team_to_mentor,
@@ -193,7 +213,11 @@ def main():
         all_chapter_matches.append(matches)
 
     all_chapter_matches = pd.concat(all_chapter_matches)
-    all_chapter_matches.to_csv(output_csv, index=False)
+    all_chapter_matches.to_csv(output_dir / "all_chapter_matches.csv", index=False)
+
+    all_mentor_ranks = pd.concat(all_mentor_ranks)
+    all_mentor_ranks.to_csv(output_dir / "all_mentor_ranks.csv", index=False)
+
 
 
 if __name__ == '__main__':

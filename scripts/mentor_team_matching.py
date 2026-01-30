@@ -9,6 +9,9 @@ from plot_utils import (
     visualize_prefs, visualize_matches
 )
 
+# constraint
+TEAM_MENTOR_MAX = 1  # max teams per mentor
+MENTOR_TEAM_MAX = 2  # max mentor per teams
 
 # %%
 
@@ -60,22 +63,23 @@ def team_mentor_pivots(
     return team_to_mentor, mentor_to_team, pair_type
 
 
-def get_matches(
+def get_match_suggestions(
     chapter_name: str, 
     team_to_mentor: pd.DataFrame,
     mentor_to_team: pd.DataFrame,
+    method: str = 'greedy-b',
     top_rank_bonus: float = 0,
     unranked_penalty: float = 1,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:  
     """
-    Run matching algorithm using linear sum assignment
-    Minimizes total sum of pairs, where pair cost is defined as ranking sum
+    Run matching suggestion algorithm
     (e.g. mutual rank of 1 between team and mentor will yield low score of 2)
     
     Args:
         chapter_name (str): chapter name
         team_to_mentor (pd.DataFrame): pivot table of team rankings of mentors
         mentor_to_team (pd.DataFrame): pivot table of mentor rankings of teams
+        method (str): method to use ('greedy-b' or 'hungarian')
         top_rank_bonus: bonus to give for mutual top 1 rankings
         unranked_penalty: penalty to add to unranked edge
 
@@ -87,37 +91,111 @@ def get_matches(
     t2m_na_fill = team_to_mentor.max().max() + unranked_penalty
     m2t_na_fill = mentor_to_team.max().max() + unranked_penalty
         
-    # fill missing rows/columns with fill value (max ranking?)
+    # fill missing rows/columns with fill value
     t2m_filled = team_to_mentor.fillna(t2m_na_fill).astype(int)
     m2t_filled = mentor_to_team.fillna(m2t_na_fill).astype(int)
 
-    # "cost" matrix is the summed rankings, then minimize bipartite matching
+    # "cost" matrix is the summed rankings
     cost_raw = t2m_filled + m2t_filled.T
 
-    cost_adj = cost_raw.values
-    cost_adj[cost_adj==2] -= top_rank_bonus
-    row_ind, col_ind = linear_sum_assignment(cost_adj)
+    if method == 'hungarian':
+        # linear sum assignment, minimize bipartite matching
+        cost_adj = cost_raw.values
+        cost_adj[cost_adj==2] -= top_rank_bonus
 
-    # construct output table
-    matches = pd.DataFrame({
-        "chapter": chapter_name,
-        "team": cost_raw.index[row_ind],
-        "mentor": cost_raw.columns[col_ind],
-        "mutual_rank_sum": cost_raw.values[row_ind, col_ind],
-        "team_rank": team_to_mentor.to_numpy()[row_ind, col_ind],
-        "mentor_rank": mentor_to_team.to_numpy()[col_ind, row_ind]
-    })
+        row_ind, col_ind = linear_sum_assignment(cost_adj)
 
-    # store provenance of match reasons
-    matches["match_type"] = (
-        matches["team_rank"].notna().astype(int)
-        + matches["mentor_rank"].notna().astype(int)
-    ).map({
-        3: "mutual",
-        2: "mentor pref",
-        1: "team pref",
-        0: "unranked"
-    })
+        # construct output table
+        matches = pd.DataFrame({
+            "chapter": chapter_name,
+            "team": cost_raw.index[row_ind],
+            "mentor": cost_raw.columns[col_ind],
+            "mutual_rank_sum": cost_raw.values[row_ind, col_ind],
+            "team_rank": team_to_mentor.to_numpy()[row_ind, col_ind],
+            "mentor_rank": mentor_to_team.to_numpy()[col_ind, row_ind]
+        })
+
+        # store provenance of match reasons
+        matches["match_type"] = (
+            matches["team_rank"].notna().astype(int)
+            + 2 * matches["mentor_rank"].notna().astype(int)
+        ).map({
+            3: "mutual",
+            2: "mentor pref",
+            1: "team pref",
+            0: "unranked"
+        })
+
+    elif method == 'greedy-b':
+
+        # build long-form table of all possible pairs
+        pairs = (
+            cost_raw
+            .stack()
+            .reset_index()
+            .rename(columns={"requester": "team", "requestee": "mentor", 0: "mutual_rank_sum"})
+        )
+
+        team_ranks = (
+            team_to_mentor
+            .rename_axis(index="team", columns="mentor")
+            .stack(dropna=False)
+            .rename("team_rank")
+            .reset_index()
+        )
+
+        mentor_ranks = (
+            mentor_to_team
+            .rename_axis(index="mentor", columns="team")
+            .stack(dropna=False)
+            .rename("mentor_rank")
+            .reset_index()
+        )
+
+        pairs = pairs.merge(team_ranks, on=["team", "mentor"], how="left")
+        pairs = pairs.merge(mentor_ranks, on=["team", "mentor"], how="left")
+
+        # determine pair type (directionality), and store for provenance
+        pairs["pair_type"] = (
+            pairs["team_rank"].notna().astype(int)
+            + 2 * pairs["mentor_rank"].notna().astype(int)
+        )
+        # store provenance of match reasons
+        pairs["pair_type"] = (
+            pairs["pair_type"]).map({
+                3: "mutual",
+                2: "mentor pref",
+                1: "team pref",
+                0: "unranked"
+            })
+
+        # bonus for mutual top-1 ranking
+        # NOTE unranked penalty already applied (either direction)
+        pairs.loc[
+                (pairs["team_rank"] == 1) & (pairs["mentor_rank"] == 1),
+                "mutual_rank_sum"
+            ] -= top_rank_bonus
+
+        # sort by adjusted score
+        pairs = pairs.sort_values("mutual_rank_sum")
+
+        # capacities
+        team_capacity = {t: MENTOR_TEAM_MAX for t in team_to_mentor.index}
+        mentor_capacity = {m: TEAM_MENTOR_MAX for m in team_to_mentor.columns}
+
+        selected_rows = []
+
+        for _, row in pairs.iterrows():
+            t = row["team"]
+            m = row["mentor"]
+
+            if team_capacity[t] > 0 and mentor_capacity[m] > 0:
+                selected_rows.append(row)
+                team_capacity[t] -= 1
+                mentor_capacity[m] -= 1
+
+        matches = pd.DataFrame(selected_rows)
+        matches["chapter"] = chapter_name
 
     return matches, cost_raw
 
@@ -184,7 +262,7 @@ def main():
 
         # option to save these out here and manually edit?
         
-        matches, cost_raw = get_matches(
+        matches, cost_raw = get_match_suggestions(
             chapter,
             team_to_mentor,
             mentor_to_team, 
@@ -198,7 +276,6 @@ def main():
         matches.to_csv(chapter_output_dir/f"{chapter}_matches.csv", index=False)
         top4.to_csv(chapter_output_dir/f"{chapter}_mentor_ranks.csv", index=False)
 
-        
         visualize_prefs(
             team_to_mentor,
             mentor_to_team,

@@ -2,6 +2,7 @@
 import argparse
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 
@@ -10,8 +11,8 @@ from plot_utils import (
 )
 
 # constraint
-TEAM_MENTOR_MAX = 1  # max teams per mentor
-MENTOR_TEAM_MAX = 2  # max mentor per teams
+TEAM_PER_MENTOR_MAX = 1  # max teams per mentor
+MENTOR_PER_TEAM_MAX = 2  # max mentor per teams
 
 # %%
 
@@ -43,6 +44,9 @@ def team_mentor_pivots(
 
     team_df['requestee'] = team_df['requestee'].apply(_strip_first_name)
     mentor_df['requester'] = mentor_df['requester'].apply(_strip_first_name)
+
+    team_df = team_df.drop_duplicates(subset=("chapter", "requester", "requestee"))
+    mentor_df = mentor_df.drop_duplicates(subset=("chapter", "requester", "requestee"))
 
     team_to_mentor = team_df.pivot(index="requester", columns="requestee", values="rank")
     mentor_to_team = mentor_df.pivot(index="requester", columns="requestee", values="rank")
@@ -90,6 +94,11 @@ def get_match_suggestions(
 
     t2m_na_fill = team_to_mentor.max().max() + unranked_penalty
     m2t_na_fill = mentor_to_team.max().max() + unranked_penalty
+
+    if np.isnan(t2m_na_fill):
+        t2m_na_fill = 25
+    if np.isnan(m2t_na_fill):
+        m2t_na_fill = 25
         
     # fill missing rows/columns with fill value
     t2m_filled = team_to_mentor.fillna(t2m_na_fill).astype(int)
@@ -131,7 +140,7 @@ def get_match_suggestions(
         # build long-form table of all possible pairs
         pairs = (
             cost_raw
-            .stack()
+            .stack(future_stack=True)
             .reset_index()
             .rename(columns={"requester": "team", "requestee": "mentor", 0: "mutual_rank_sum"})
         )
@@ -156,13 +165,13 @@ def get_match_suggestions(
         pairs = pairs.merge(mentor_ranks, on=["team", "mentor"], how="left")
 
         # determine pair type (directionality), and store for provenance
-        pairs["pair_type"] = (
+        pairs["match_type"] = (
             pairs["team_rank"].notna().astype(int)
             + 2 * pairs["mentor_rank"].notna().astype(int)
         )
         # store provenance of match reasons
-        pairs["pair_type"] = (
-            pairs["pair_type"]).map({
+        pairs["match_type"] = (
+            pairs["match_type"]).map({
                 3: "mutual",
                 2: "mentor pref",
                 1: "team pref",
@@ -180,19 +189,39 @@ def get_match_suggestions(
         pairs = pairs.sort_values("mutual_rank_sum")
 
         # capacities
-        team_capacity = {t: MENTOR_TEAM_MAX for t in team_to_mentor.index}
-        mentor_capacity = {m: TEAM_MENTOR_MAX for m in team_to_mentor.columns}
+        team_capacity = {t: MENTOR_PER_TEAM_MAX for t in team_to_mentor.index}
+        mentor_capacity = {m: TEAM_PER_MENTOR_MAX for m in team_to_mentor.columns}
 
+        selected = set()
         selected_rows = []
 
-        for _, row in pairs.iterrows():
-            t = row["team"]
-            m = row["mentor"]
+        # first pass, ensure every team gets at least one mentor (assuming there are enough mentors)
+        for team in team_to_mentor.index:
+            team_edges = pairs[pairs["team"] == team]
 
-            if team_capacity[t] > 0 and mentor_capacity[m] > 0:
+            for _, row in team_edges.iterrows():
+                mentor = row["mentor"]
+
+                if mentor_capacity[mentor] > 0:
+                    selected_rows.append(row)
+                    selected.add((team, mentor))
+                    mentor_capacity[mentor] -= 1
+                    team_capacity[team] -= 1
+                    break
+
+        # second pass, fill remaining capacity with extra mentors
+        for _, row in pairs.iterrows():
+            team = row["team"]
+            mentor = row["mentor"]
+
+            if (team, mentor) in selected:
+                continue
+
+            if team_capacity[team] > 0 and mentor_capacity[mentor] > 0:
                 selected_rows.append(row)
-                team_capacity[t] -= 1
-                mentor_capacity[m] -= 1
+                selected.add((team, mentor))
+                team_capacity[team] -= 1
+                mentor_capacity[mentor] -= 1
 
         matches = pd.DataFrame(selected_rows)
         matches["chapter"] = chapter_name
@@ -222,7 +251,7 @@ def main():
     parser.add_argument(
         "--input-csv", 
         help='',
-        default="mentor_team_match_requests_clean.csv"
+        default="mentor_team_match_requests_clean_260211.csv"
         )
     parser.add_argument(
         "--output-dir", 
@@ -239,6 +268,11 @@ def main():
         help="extra penalty for unranked edge, on top of default (max_rank+1)",
         default=1
         )
+    parser.add_argument(
+        "--chapters",
+        nargs="+",
+        default=None,
+    )
     
     args = parser.parse_args()
     
@@ -249,45 +283,51 @@ def main():
     # run matching
     all_chapter_matches = []
     all_mentor_ranks = []
+
+    chapter_list = args.chapters or df["chapter"].drop_duplicates().to_list()
     
     for chapter, df_chapter in df.groupby("chapter"):
 
-        chapter_output_dir = output_dir / chapter
-        Path(chapter_output_dir).mkdir(parents=True, exist_ok=True)
+        if chapter in chapter_list:
 
-        print("="*60)
-        print(f"Matching {chapter}")
+            chapter_output_dir = output_dir / chapter
+            Path(chapter_output_dir).mkdir(parents=True, exist_ok=True)
 
-        team_to_mentor, mentor_to_team, pair_type = team_mentor_pivots(df_chapter)
+            print("="*60)
+            print(f"Matching {chapter}")
 
-        # option to save these out here and manually edit?
-        
-        matches, cost_raw = get_match_suggestions(
-            chapter,
-            team_to_mentor,
-            mentor_to_team, 
-            top_rank_bonus=args.top_rank_bonus,
-            unranked_penalty=args.unranked_penalty
-            )
+            team_to_mentor, mentor_to_team, pair_type = team_mentor_pivots(df_chapter)
 
-        top4 = top_n_per_team(cost_raw, 4)
-        all_mentor_ranks.append(top4)
+            # option to save these out here and manually edit?
+            
+            matches, cost_raw = get_match_suggestions(
+                chapter,
+                team_to_mentor,
+                mentor_to_team, 
+                method='greedy-b',
+                top_rank_bonus=args.top_rank_bonus,
+                unranked_penalty=args.unranked_penalty
+                )
 
-        matches.to_csv(chapter_output_dir/f"{chapter}_matches.csv", index=False)
-        top4.to_csv(chapter_output_dir/f"{chapter}_mentor_ranks.csv", index=False)
+            top4 = top_n_per_team(cost_raw, 4)
+            top4["chapter"] = chapter
+            all_mentor_ranks.append(top4)
 
-        visualize_prefs(
-            team_to_mentor,
-            mentor_to_team,
-            pair_type,
-            matches=matches,
-            save_path=chapter_output_dir/f"{chapter}_team_mentor_preferences.png")
-        
-        print(matches)
-        print("="*60)
+            matches.to_csv(chapter_output_dir/f"{chapter}_matches.csv", index=False)
+            top4.to_csv(chapter_output_dir/f"{chapter}_mentor_ranks.csv", index=False)
 
-        # visualize_matches(cost_raw, matches)
-        all_chapter_matches.append(matches)
+            visualize_prefs(
+                team_to_mentor,
+                mentor_to_team,
+                pair_type,
+                matches=matches,
+                save_path=chapter_output_dir/f"{chapter}_team_mentor_preferences.png")
+            
+            print(matches)
+            print("="*60)
+
+            visualize_matches(cost_raw, matches, save_path=chapter_output_dir/f"{chapter}_mutual_prefs.png")
+            all_chapter_matches.append(matches)
 
     all_chapter_matches = pd.concat(all_chapter_matches)
     all_chapter_matches.to_csv(output_dir / "all_chapter_matches.csv", index=False)

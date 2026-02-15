@@ -288,7 +288,7 @@ def main():
     
     for chapter, df_chapter in df.groupby("chapter"):
 
-        if chapter in chapter_list:
+        if chapter in chapter_list and len(df_chapter) > 10:
 
             chapter_output_dir = output_dir / chapter
             Path(chapter_output_dir).mkdir(parents=True, exist_ok=True)

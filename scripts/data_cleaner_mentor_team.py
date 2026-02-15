@@ -66,22 +66,29 @@ def main():
 
     # corresponding columns with different names depending on mentor or team
     mentor_team_cols = {
-        'chapter': ('team_chapter', 'Mentor Chapter'),
+        # 'chapter': ('team_chapter', 'Mentor Chapter'),
         'requester': ('00_Team_Name (from Team requesting)', 'Lookup_Full Name'), # who was the requester?
         'requestee': ('Lookup_Full Name', 'Team ranked')
     }
 
     # Construct unified columns: chapter, requester, requestee, type, rank
-    df = raw_df[['email', 'Type', 'Ranking']].rename(columns={'Type': 'type', 'Ranking': 'rank'})
-    
-    for k, (team_col, mentor_col) in mentor_team_cols.items():
-        team_series = raw_df[team_col]
-        mentor_series = raw_df[mentor_col]
-        df[k] = np.where(df.get('type') == 'Mentor', mentor_series, team_series)
+    df = raw_df.rename(
+    columns={
+        'Type': 'type',
+        'Ranking': 'rank',
+        'chapter_coalesced': 'chapter',
+        }
+    )[['type', 'rank', 'chapter']]
 
+    for k, (team_col, mentor_col) in mentor_team_cols.items():
+        df[k] = np.where(
+            df['type'] == 'Mentor',
+            raw_df[mentor_col],
+            raw_df[team_col]
+        )
+            
     df = df[['chapter', 'requester', 'requestee', 'type', 'rank']]
     df = df.dropna(subset=['chapter','requester','requestee','type'])
-    
     # Clean per requester
     cleaned_groups = []
     for keys, grp in df.groupby(["chapter", "requester", "type"], sort=False):

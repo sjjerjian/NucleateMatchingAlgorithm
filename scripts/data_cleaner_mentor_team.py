@@ -68,7 +68,7 @@ def main():
     mentor_team_cols = {
         # 'chapter': ('team_chapter', 'Mentor Chapter'),
         'requester': ('00_Team_Name (from Team requesting)', 'Lookup_Full Name'), # who was the requester?
-        'requestee': ('Lookup_Full Name', 'Team ranked')
+        'requestee': ('Lookup_Full Name', 'Lookup_Team Name')
     }
 
     # Construct unified columns: chapter, requester, requestee, type, rank
@@ -76,7 +76,7 @@ def main():
     columns={
         'Type': 'type',
         'Ranking': 'rank',
-        'chapter_coalesced': 'chapter',
+        'team_chapter_coalesced': 'chapter',
         }
     )[['type', 'rank', 'chapter']]
 
